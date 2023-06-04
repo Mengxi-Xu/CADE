@@ -47,7 +47,7 @@ def main():
     # 0. Init log path and parse args          #
     # ---------------------------------------- #
 
-    args = utils.parse_args()
+    args = utils.parse_args()#//解析命令行参数的函数，返回一个包含命令行参数的对象
 
     log_path = './logs/main'
     if args.quiet:
@@ -79,6 +79,8 @@ def main():
     logging.info(f'y_test labels: {np.unique(y_test)}')
     logging.info(f'y_train: {Counter(y_train)}')
     logging.info(f'y_test: {Counter(y_test)}')
+    #//使用日志记录模块输出一些有关数据集的基本信息，
+    #//包括训练集和测试集的大小、标签的取值范围以及每个标签对应的样本数量（使用 Counter 函数统计）
 
     # ----------------------------------------------- #
     # 3. Train classifier and evaluate on test set    #
@@ -101,6 +103,7 @@ def main():
     logging.info('train on the training set and predict on the validation and testing set...')
 
     if args.classifier == 'mlp':
+        #// 函数用于计算 MLP 的维度
         mlp_dims = utils.get_model_dims('MLP', NUM_FEATURES, args.mlp_hidden, NUM_CLASSES)
 
         class_weight = None
@@ -120,7 +123,8 @@ def main():
         logging.debug(f'Saving MLP models to {MLP_MODEL_PATH}...')
         retrain_flag = 1 if not os.path.exists(MLP_MODEL_PATH) else args.mlp_retrain
         logging.debug(f'retrain? {retrain_flag}')
-
+        
+        #//训练 MLP 分类器,并返回验证集的准确率 val_acc
         val_acc = mlp_classifier.train(X_train, y_train,
                                        lr=args.mlp_lr,
                                        batch_size=args.mlp_batch_size,
@@ -129,7 +133,8 @@ def main():
                                        retrain=retrain_flag)
 
         saved_confusion_matrix_fig_path = os.path.join(FIG_FOLDER, args.data, 'intermediate', 'MLP_confusion_matrix.png')
-
+        #//用于在测试集上进行预测，并计算测试集的准确率 new_acc 和混淆矩阵，并将混淆矩阵保存为一张图片。
+        #//最后，函数会将预测结果 y_pred 和准确率 new_acc 返回给用户
         y_pred, new_acc = mlp_classifier.predict(X_test, y_test, args.data, args.newfamily_label,
                                                  saved_confusion_matrix_fig_path)
 
@@ -141,6 +146,7 @@ def main():
         # incase args.rf_retrain = 0 while there is no Model file
         retrain_flag = 1 if not os.path.exists(RF_MODEL_PATH) else args.rf_retrain
         saved_confusion_matrix_fig_path = os.path.join(FIG_FOLDER, args.data, 'RF_confusion_matrix.png')
+        #//模型在测试集上的准确率被存储到 val_acc 中，模型在新样本集上的准确率被存储到 new_acc 中
         y_pred, val_acc, new_acc = rf_classifier.fit_and_predict(X_train, y_train,
                                                                  X_test, y_test,
                                                                  args.data,
@@ -187,6 +193,7 @@ def main():
     # --------------------------------------------------------- #
     # 5. Train the Contrastive Autoencoder                      #
     # --------------------------------------------------------- #
+    #//基于对比损失函数的自编码器模型，用于学习数据的低维表示。
     logging.info('Training contrastive autoencoder...')
     cae_dims = utils.get_model_dims('Contrastive AE', NUM_FEATURES,
                                     args.cae_hidden, NUM_CLASSES)
@@ -220,23 +227,24 @@ def main():
     # --------------------------------------------------------- #
     # 6. Detect drifting samples in the testing set                  #
     # --------------------------------------------------------- #
-    logging.info('Detect drifting samples in the testing set...')
-    postfix_no_mad = f'm{args.margin}_lambda{args.cae_lambda_1}'
-    # ALL: contains the closest family for all the testing set, use this to compare with classifier's prediction
-    ALL_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate',
+    ```
+    logging.info('Detect drifting samples in the testing set...') # 记录日志，说明正在检测测试集中的漂移样本
+    
+    postfix_no_mad = f'm{args.margin}_lambda{args.cae_lambda_1}' # 根据 margin 和 cae_lambda_1 参数生成后缀名
+    
+    ALL_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate', # 生成保存所有测试集样本最近邻家族的文件路径
                                    f'{args.classifier}_detect_results_all_{postfix_no_mad}.csv')
-    utils.create_parent_folder(ALL_DETECT_PATH)
-    # SIMPLE: only contains drift samples flagged by the MAD # NOTE: this is just for quickly viewing the results
-    SIMPLE_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate',
-                                      f'{args.classifier}_detect_results_simple_{postfix_no_mad}.csv')
+    
+    utils.create_parent_folder(ALL_DETECT_PATH) # 创建保存文件的父文件夹
+    # 生成保存检测出的漂移样本的文件路径
+    SIMPLE_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate', 
+                                    f'{args.classifier}_detect_results_simple_{postfix_no_mad}.csv')
 
-    # training info for detect: contains all the needed info to determine a new testing sample
-    # is an drifting sample for a particular family
-    TRAINING_INFO_FOR_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate',
+    TRAINING_INFO_FOR_DETECT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate', # 生成保存用于检测漂移样本所需信息的文件路径
                                                 f'{args.classifier}_training_info_for_detect_{postfix_no_mad}.npz')
 
     s2 = timer()
-    detect.detect_drift_samples(X_train, y_train, X_test, y_test, y_pred,
+    detect.detect_drift_samples(X_train, y_train, X_test, y_test, y_pred, # 检测测试集中的漂移样本
                                 cae_dims,
                                 args.margin,
                                 args.mad_threshold,
@@ -244,65 +252,75 @@ def main():
                                 ALL_DETECT_PATH, SIMPLE_DETECT_PATH,
                                 TRAINING_INFO_FOR_DETECT_PATH)
     e2 = timer()
-    logging.debug(f'detect_odd_samples time: {(e2 - s2):.3f} seconds')
-    logging.info('Detect drifting samples in the testing set finished')
-
+    logging.debug(f'detect_odd_samples time: {(e2 - s2):.3f} seconds') # 记录日志，说明检测漂移样本的时间
+    logging.info('Detect drifting samples in the testing set finished') # 记录日志，说明已经完成检测测试集中的漂移样本
     # --------------------------------------------------------- #
     # 7. Evaluate the detection performance                     #
     # --------------------------------------------------------- #
-    logging.info('Evaluate the detection performance...')
-    postfix_with_mad = f'm{args.margin}_mad{args.mad_threshold}_lambda{args.cae_lambda_1}'
-
+    # 定义一个字符串变量，表示分类器和检测结果的文件路径
     name_tmp = f'{args.classifier}_combined_classify_detect_results_{postfix_no_mad}.csv'
     COMBINED_REPORT_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate', name_tmp)
 
+    # 调用 evaluate 模块中的函数，将分类器的结果和检测结果进行合并，并输出到 COMBINED_REPORT_PATH 文件中
     evaluate.combine_classify_and_detect_result(CLASSIFY_RESULTS_ALL_PATH, ALL_DETECT_PATH, COMBINED_REPORT_PATH)
 
+    # 定义一个字符串变量，表示保存有序样本距离的文件路径
     SAVE_ORDERED_DIS_PATH = os.path.join(REPORT_FOLDER, args.data, 'intermediate',
                                          f'ordered_sample_real_mindis_{postfix_with_mad}.txt')
-    # final result
+
+    # 定义一个字符串变量，表示保存距离、检测效率和 PR 值图的文件路径
     DIST_EFFORT_PR_VALUE_FIG_PATH = os.path.join(FIG_FOLDER, args.data,
                                                  f'dist_{args.classifier}_inspection_effort_pr_value_{postfix_with_mad}.png')
+
+    # 定义一个字符串变量，表示保存逐个检查检测结果的文件路径
     DIST_ONE_BY_ONE_CHECK_RESULT_PATH = os.path.join(REPORT_FOLDER, args.data,
                                                      f'dist_{args.classifier}_one_by_one_check_pr_value_{postfix_with_mad}.csv')
 
+    # 调用 evaluate 模块中的函数，评估新的家族是否为漂移样本，并输出相关结果到上述文件路径中
     evaluate.evaluate_newfamily_as_drift_by_distance(args.data, args.newfamily_label, COMBINED_REPORT_PATH, args.mad_threshold,
                                                      SAVE_ORDERED_DIS_PATH, DIST_EFFORT_PR_VALUE_FIG_PATH,
                                                      DIST_ONE_BY_ONE_CHECK_RESULT_PATH)
-    logging.info('Evaluate the detection performance finished')
+
+# 打印一条日志，表示检测性能评估已经完成
+logging.info('Evaluate the detection performance finished')
 
     # --------------------------------------------------------- #
     # 8. Explain why it's an drifting sample                    #
     # --------------------------------------------------------- #
-    if args.stage == 'explanation':
-        logging.info('Explain the detected drifting samples...')
-        lambda1 = args.exp_lambda_1
-        exp_method = args.exp_method
-        MASK_FILE_PATH = os.path.join(REPORT_FOLDER, args.data, f'mask_{exp_method}_{lambda1}.npz') # final explanation
-        if exp_method == 'approximation_loose':
-            import cade.explain_global_approximation_loose_boundary as explain
+    ```
+    if args.stage == 'explanation': # 检查是否处于解释阶段
+            logging.info('Explain the detected drifting samples...') # 记录日志，说明正在解释漂移样本
+            lambda1 = args.exp_lambda_1 # 解释方法的参数 lambda1
+            exp_method = args.exp_method # 解释方法
+            MASK_FILE_PATH = os.path.join(REPORT_FOLDER, args.data, f'mask_{exp_method}_{lambda1}.npz') # 生成掩码文件路径
 
-            SAVED_EXP_CLASSIFIER_FOLDER = os.path.join(SAVED_MODEL_FOLDER, args.data, f'exp_{exp_method}')
+            if exp_method == 'approximation_loose': # 如果是 approximation_loose 方法
+                import cade.explain_global_approximation_loose_boundary as explain # 导入相关模块
 
-            explain.explain_drift_samples_per_instance(X_train, y_train, X_test, y_test,
-                                                       args,
-                                                       DIST_ONE_BY_ONE_CHECK_RESULT_PATH,
-                                                       TRAINING_INFO_FOR_DETECT_PATH,
-                                                       AE_WEIGHTS_PATH,
-                                                       SAVED_EXP_CLASSIFIER_FOLDER,
-                                                       MASK_FILE_PATH)
-        elif exp_method == 'distance_mm1':
-            '''explain by minimizing latent distance to centroid '''
-            explain_dis.explain_drift_samples_per_instance(X_train, y_train, X_test, y_test,
+                SAVED_EXP_CLASSIFIER_FOLDER = os.path.join(SAVED_MODEL_FOLDER, args.data, f'exp_{exp_method}') # 保存解释分类器的文件夹路径
+
+                 # 使用漂移样本解释训练数据中每个实例的分类结果
+                explain.explain_drift_samples_per_instance(X_train, y_train, X_test, y_test,
                                                            args,
                                                            DIST_ONE_BY_ONE_CHECK_RESULT_PATH,
                                                            TRAINING_INFO_FOR_DETECT_PATH,
                                                            AE_WEIGHTS_PATH,
+                                                           SAVED_EXP_CLASSIFIER_FOLDER,
                                                            MASK_FILE_PATH)
-        else:
-            logging.error(f'exp_method {exp_method} not supported')
-            sys.exit(-3)
-        logging.info('Explain the detected drifting samples finished')
+            elif exp_method == 'distance_mm1': # 如果是 distance_mm1 方法
+                '''explain by minimizing latent distance to centroid '''
+                explain_dis.explain_drift_samples_per_instance(X_train, y_train, X_test, y_test, # 使用漂移样本解释训练数据中每个实例的分类结果
+                                                               args,
+                                                               DIST_ONE_BY_ONE_CHECK_RESULT_PATH,
+                                                               TRAINING_INFO_FOR_DETECT_PATH,
+                                                               AE_WEIGHTS_PATH,
+                                                               MASK_FILE_PATH)
+            else: # 如果是其他的方法
+                logging.error(f'exp_method {exp_method} not supported') # 记录日志，说明该方法不受支持
+                sys.exit(-3) # 退出程序
+
+            logging.info('Explain the detected drifting samples finished') # 记录日志，说明漂移样本的解释已经完成
+```
 
 
 if __name__ == "__main__":
