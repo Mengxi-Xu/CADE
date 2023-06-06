@@ -195,15 +195,17 @@ def main():
     # --------------------------------------------------------- #
     #//基于对比损失函数的自编码器模型，用于学习数据的低维表示。
     logging.info('Training contrastive autoencoder...')
+    #//获取对比自编码器的维度
     cae_dims = utils.get_model_dims('Contrastive AE', NUM_FEATURES,
                                     args.cae_hidden, NUM_CLASSES)
+    #设定优化器为AdamOptimizer，模型保存路径为SAVED_MODEL_FOLDER和数据名称
     OPTIMIZER = tf.train.AdamOptimizer
     CKPT_DIR = os.path.join(SAVED_MODEL_FOLDER, args.data)
     utils.create_folder(CKPT_DIR)
     cae_dims_str = str(cae_dims).replace(' ', '').replace(',', '-').replace('[', '').replace(']', '') # remove extra symbols
 
     s1 = timer()
-
+    #如果pure_ae参数为0，则使用对比自编码器进行训练；反之则使用普通自编码器进行训练
     if args.pure_ae == 0:
         ''' Our method: use contrastive autoencoder'''
         AE_WEIGHTS_PATH = os.path.join(CKPT_DIR, f'cae_{cae_dims_str}_lr{args.cae_lr}' + \
@@ -212,6 +214,7 @@ def main():
         cae.train(X_train, y_train,
                 args.cae_lambda_1, args.cae_batch_size, args.cae_epochs, args.similar_ratio, args.margin,
                 AE_WEIGHTS_PATH, args.display_interval)
+    #反之则使用普通自编码器进行训练
     else:
         '''baseline: use vanilla autoencoder'''
         AE_WEIGHTS_PATH = os.path.join(CKPT_DIR, f'pure_ae_{cae_dims_str}_lr{args.cae_lr}' + \
